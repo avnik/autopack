@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE ViewPatterns #-}
 
 {- |
@@ -21,6 +22,9 @@ import Distribution.Types.BuildInfo (BuildInfo (..))
 import Distribution.Types.CondTree (CondTree (..))
 import Distribution.Types.GenericPackageDescription (GenericPackageDescription (..))
 import Distribution.Types.Library (Library (..))
+#if MIN_VERSION_Cabal(3,6,0)
+import Distribution.Utils.Path (getSymbolicPath)
+#endif
 import System.Directory.Recursive (getDirRecursive)
 import System.FilePath (dropExtension, splitDirectories, takeExtension)
 
@@ -44,7 +48,7 @@ defaultMainAutoModules = defaultMainWithHooks $
   where
     getModules :: GenericPackageDescription -> IO [ModuleName]
     getModules pkgDescr = do
-        let dirs = concatMap (hsSourceDirs . libBuildInfo . condTreeData) $
+        let dirs = map getSymbolicPath $ concatMap (hsSourceDirs . libBuildInfo . condTreeData) $
                 maybeToList $ condLibrary pkgDescr
         files <- concat <$> mapM getDirRecursive dirs
         let hsExts = [".hs", ".hsc"]
@@ -83,3 +87,9 @@ modulesHooks getModules hooks = hooks
                 }
         confHook hooks (newGPackDescr, hBuildInfo) flags
     }
+
+#if !MIN_VERSION_Cabal(3,6,0)
+-- shim for Cabal =< 3.6
+getSymbolicPath :: FilePath -> FilePath
+getSymbolicPath = id
+#endif
